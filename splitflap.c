@@ -29,13 +29,13 @@ ATMEL ATTINY2313/4313
 
 #include "usiTwiSlave.h"
 
-#define output(directions,pin) (directions |= pin) // set port direction for output
-#define input(directions,pin) (directions &= (~pin)) // set port direction for input
+#define output(directions,pin) (directions |= pin)
+#define input(directions,pin) (directions &= (~pin))
 
-#define set(port,pin) (port |= pin) // set port pin
-#define clear(port,pin) (port &= (~pin)) // clear port pin
-#define pin_test(pins,pin) (pins & pin) // test for port pin
-#define bit_test(byte,bit) (byte & (1 << bit)) // test for bit set
+#define set(port,pin) (port |= pin)
+#define clear(port,pin) (port &= (~pin))
+#define pin_test(pins,pin) (pins & pin)
+#define bit_test(byte,bit) (byte & (1 << bit))
 
 #define A1 (1 << PB1)
 #define A2 (1 << PD4)
@@ -48,9 +48,9 @@ ATMEL ATTINY2313/4313
 #define LED (1 << PD6)
 #define MAG (1 << PD3)
 
-#define on_delay() _delay_us(50) // PWM on time was 25 Chris 50
-#define off_delay() _delay_us(10) // PWM off time was 5 Chris 10
-#define PWM_count 125 // number of PWM cycles was 100 Chris 200
+#define on_delay() _delay_us(50)
+#define off_delay() _delay_us(10)
+#define PWM_count 125
 
 static uint8_t count;
 int currStep = 0;
@@ -148,7 +148,7 @@ int main(void)
 	output(DDRD, LED);
 	set(PORTD, LED);
 
-	//set motor enable pins high
+	//setup stepper pins
 	clear(PORTD, EN1);
 	output(DDRD, EN1);
 	clear(PORTB, EN2);
@@ -174,10 +174,10 @@ int main(void)
 	uint8_t inputPosition = 0;
 	const int stepOffset = 5;
 
+
 	homing();
 
-	while(1)
-	{
+	while(1) {
 		if(usiTwiDataInReceiveBuffer()) {
 			inputPosition = usiTwiReceiveByte();
 		}
@@ -186,7 +186,7 @@ int main(void)
 		set(PORTD, LED);
 		
 		if (inputPosition < currPosition) {
-			//home to zero first
+			//home to zero first and then move
 			homing();
 		}
 
