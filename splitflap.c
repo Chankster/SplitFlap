@@ -14,9 +14,6 @@ ATMEL ATTINY2313/4313
 1/2EN *(D  7) PD5  9|    |12 PB0 (D  9)
               GND 10|    |11 PD6 (D  8)  LED
                     +----+
-					
-	PD  000*0*00
-	PB  0000*0*0
  */
 
 #define F_CPU 16000000UL // 16 MHz
@@ -56,12 +53,14 @@ ATMEL ATTINY2313/4313
 #define PWM_count 125 // number of PWM cycles was 100 Chris 200
 
 static uint8_t count;
+int currStep = 0;
+int currPosition = 0;
 
 void pulse_A1A2() {
-clear(PORTD, B1);
-clear(PORTB, B2);
-set(PORTB, A1);
-set(PORTD, A2);
+	clear(PORTD, B1);
+	clear(PORTB, B2);
+	set(PORTB, A1);
+	set(PORTD, A2);
 	for (count = 0; count < PWM_count; ++count) {
 		set(PORTB, A1);
 		set(PORTD, A2);
@@ -73,10 +72,10 @@ set(PORTD, A2);
 }
 
 void pulse_A2B1() {
-clear(PORTB, A1);
-clear(PORTB, B2);
-set(PORTD, A2);
-set(PORTD, B1);
+	clear(PORTB, A1);
+	clear(PORTB, B2);
+	set(PORTD, A2);
+	set(PORTD, B1);
 	for (count = 0; count < PWM_count; ++count) {
 		set(PORTD, A2);
 		set(PORTD, B1);
@@ -132,13 +131,17 @@ void step_cw(int step) {
 	clear(PORTB, EN2);
 }
 
-//void step_ccw() {
-//	pulse_B2A1();
-//	pulse_B1B2();
-//	pulse_A2B1();
-//	pulse_A1A2();
-//}
-   
+void homing() {
+	clear(PORTD, LED);
+	while(pin_test(PIND, MAG)) {
+		currStep++;
+		currStep = currStep % 4;
+		step_cw(currStep);
+	}
+	currPosition = 0;
+	set(PORTD, LED);
+}
+ 
 int main(void)
 {
 	//set led high
@@ -159,52 +162,49 @@ int main(void)
 	clear(PORTB, B2);
 	output(DDRB, B2);
 
+	//setup magnet input
+	input(DDRD, MAG);
+	
 	const uint8_t slaveAddress = 0x04;
 	usiTwiSlaveInit(slaveAddress);	
 	
 	//enable interrupts
 	sei();
 	
-	//setup magnet input
-	input(DDRD, MAG);
-	
-	int currStep = 0;
-	uint8_t temp_var = 0;
+	uint8_t inputPosition = 0;
+	const int stepOffset = 5;
+
+	homing();
+
 	while(1)
 	{
 		if(usiTwiDataInReceiveBuffer()) {
-			temp_var = usiTwiReceiveByte();
+			inputPosition = usiTwiReceiveByte();
 		}
+
 		int i = 0;
 		set(PORTD, LED);
 		
-		//do homing routine
-		if (temp_var > 50) {
-			clear(PORTD, LED);
-			while(bit_test(PIND, MAG) {
-				for(i = 0; i < 4; i++) {
-					step_cw(i);
-				}
-			}
-			set(PORTD, LED);
-		} 
-		//otherwise move that number of steps
-		else {
-			for(i = 0; i < temp_var; i++) {
-				currStep = (++currStep) % 4;
+		if (inputPosition < currPosition) {
+			//home to zero first
+			homing();
+		}
+
+		if (inputPosition > 50) {
+			//homing command
+			homing();
+			inputPosition = 0;
+		} else if (inputPosition == currPosition) {
+			//do nothing
+		} else {
+			//otherwise move that number of steps
+			for(i = 0; i < ((inputPosition - currPosition) * stepOffset); i++) {
+				currStep++;
+				currStep = currStep % 4;
 				step_cw(currStep);
 			}
+			currPosition = inputPosition;
 		}
-		temp_var = 0;
-	
-		//if (PIND & (1<<PD3)) {
-		//	PORTD |= (1<<PD6);
-		//	step_cw();
-		//}
-		//else {
-		//	PORTD &= ~(1<<PD6);
-		//	step_ccw();
-		//}
 	}
 	return 0;
 }
